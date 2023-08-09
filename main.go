@@ -27,7 +27,6 @@ func NewFactory(maxQueueSize, maxWorkers int, db *sql.DB) *Factory {
 }
 
 func (f *Factory) Start() {
-	fmt.Println("Starting factory...")
 	for i := 1; i <= f.maxWorkers; i++ {
 		go f.worker(i)
 	}
