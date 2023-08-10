@@ -2,7 +2,6 @@ package factorygo
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
 )
@@ -13,16 +12,14 @@ type Factory struct {
 	workerJobsChan chan Job
 	cancelJobFuncs map[int]context.CancelFunc
 	mu             sync.Mutex
-	db             *sql.DB
 }
 
-func NewFactory(maxQueueSize, maxWorkers int, db *sql.DB) *Factory {
+func NewFactory(maxQueueSize, maxWorkers int) *Factory {
 	return &Factory{
 		maxQueueSize:   maxQueueSize,
 		maxWorkers:     maxWorkers,
 		workerJobsChan: make(chan Job, maxQueueSize),
 		cancelJobFuncs: make(map[int]context.CancelFunc),
-		db:             db,
 	}
 }
 
@@ -36,7 +33,7 @@ func (f *Factory) worker(workerID int) {
 	for job := range f.workerJobsChan {
 		ctx, cancel := context.WithCancel(context.Background())
 		f.storeJob(job.ID, cancel)
-		err := job.Execute(ctx, f.db, workerID)
+		err := job.Execute(ctx, workerID)
 		if err != nil {
 			fmt.Printf("worker%d: job %d error: %v\n", workerID, job.ID, err)
 		}
@@ -58,7 +55,7 @@ type Job struct {
 	Executor func() error // Function to be executed
 }
 
-func (j *Job) Execute(ctx context.Context, db *sql.DB, workerID int) error {
+func (j *Job) Execute(ctx context.Context, workerID int) error {
 	fmt.Printf("worker%d: processing %d\n", workerID, j.ID)
 
 	select {
