@@ -29,16 +29,18 @@ func (f *Factory) Start() {
 	}
 }
 
-func (f *Factory) worker(workerID int) {
+func (f *Factory) worker(workerID int) error {
 	for job := range f.workerJobsChan {
 		ctx, cancel := context.WithCancel(context.Background())
 		f.storeJob(job.ID, cancel)
 		err := job.Execute(ctx, workerID)
 		if err != nil {
-			fmt.Printf("worker%d: job %d error: %v\n", workerID, job.ID, err)
+			return err
 		}
 		f.cleanupJob(job.ID)
 	}
+
+	return nil
 }
 
 func (f *Factory) AddJob(job Job) error {
@@ -52,26 +54,22 @@ func (f *Factory) AddJob(job Job) error {
 
 type Job struct {
 	ID       int
-	Executor func() error // Function to be executed
+	Executor func(ctx context.Context) error // Function to be executed
 }
 
 func (j *Job) Execute(ctx context.Context, workerID int) error {
-	fmt.Printf("worker%d: processing %d\n", workerID, j.ID)
-
-	select {
-	case <-ctx.Done():
-		fmt.Printf("--- job %d cancelled ---\n", j.ID)
-		return nil
-	default:
-		fmt.Printf("--- end search job %d ---\n", j.ID)
-	}
+	// select {
+	// case <-ctx.Done():
+	// 	return nil
+	// default:
+	// 	fmt.Printf("--- end search job %d ---\n", j.ID)
+	// }
 
 	// Call the provided executor function
 	if j.Executor != nil {
-		return j.Executor()
+		return j.Executor(ctx)
 	}
 
-	fmt.Printf("worker%d: completed %d!\n", workerID, j.ID)
 	return nil
 }
 
