@@ -77,12 +77,12 @@ type Job struct {
 }
 
 func (j *Job) Execute(ctx context.Context, workerID int) error {
-	select {
-	case <-ctx.Done():
-		return nil
-	default:
-		fmt.Printf("--- end search job %d ---\n", j.ID)
-	}
+	// select {
+	// case <-ctx.Done():
+	// 	return nil
+	// default:
+	// 	fmt.Printf("--- end search job %d ---\n", j.ID)
+	// }
 
 	// Call the provided executor function
 	if j.Executor != nil {
