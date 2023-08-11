@@ -12,6 +12,7 @@ type Factory struct {
 	workerJobsChan chan Job
 	cancelJobFuncs map[int]context.CancelFunc
 	mu             sync.Mutex
+	waitGroup      sync.WaitGroup // Used to wait for all jobs to finish
 }
 
 func NewFactory(maxQueueSize, maxWorkers int) *Factory {
@@ -29,14 +30,32 @@ func (f *Factory) Start() {
 	}
 }
 
+func (f *Factory) WaitAll() {
+	f.waitGroup.Wait() // Wait for all jobs to finish
+}
+
+func (f *Factory) Stop() {
+	// Cancel all running jobs
+	f.mu.Lock()
+	for _, cancel := range f.cancelJobFuncs {
+		cancel()
+	}
+	f.mu.Unlock()
+
+	// Wait for all running jobs to finish before returning
+	f.WaitAll()
+}
+
 func (f *Factory) worker(workerID int) error {
 	for job := range f.workerJobsChan {
 		ctx, cancel := context.WithCancel(context.Background())
 		f.storeJob(job.ID, cancel)
+		f.waitGroup.Add(1) // Increment the WaitGroup counter
 		err := job.Execute(ctx, workerID)
 		if err != nil {
 			return err
 		}
+		f.waitGroup.Done() // Decrement the WaitGroup counter when the job is done
 		f.cleanupJob(job.ID)
 	}
 
@@ -58,12 +77,12 @@ type Job struct {
 }
 
 func (j *Job) Execute(ctx context.Context, workerID int) error {
-	// select {
-	// case <-ctx.Done():
-	// 	return nil
-	// default:
-	// 	fmt.Printf("--- end search job %d ---\n", j.ID)
-	// }
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+		fmt.Printf("--- end search job %d ---\n", j.ID)
+	}
 
 	// Call the provided executor function
 	if j.Executor != nil {
